@@ -199,6 +199,8 @@ struct App {
     drop_target: Option<(ZcosmicWorkspaceHandleV1, wl_output::WlOutput)>,
 }
 
+const NUM_WORKSPACES: usize = 4; // ADDED BY TheShatterstone
+
 impl App {
     fn workspace_for_handle(&self, handle: &ZcosmicWorkspaceHandleV1) -> Option<&Workspace> {
         self.workspaces.iter().find(|i| &i.handle == handle)
@@ -402,31 +404,45 @@ impl Application for App {
                     backend::Event::CmdSender(sender) => {
                         self.wayland_cmd_sender = Some(sender);
                     }
-                    backend::Event::Workspaces(workspaces) => {
-                        let old_workspaces = mem::take(&mut self.workspaces);
-                        self.workspaces = Vec::new();
-                        for (outputs, workspace) in workspaces {
-                            let is_active = workspace.state.contains(&WEnum::Value(
-                                zcosmic_workspace_handle_v1::State::Active,
-                            ));
+                    // backend::Event::Workspaces(workspaces) => {
+                    //     let old_workspaces = mem::take(&mut self.workspaces);
+                    //     self.workspaces = Vec::new();
+                    //     for (outputs, workspace) in workspaces {
+                    //         let is_active = workspace.state.contains(&WEnum::Value(
+                    //             zcosmic_workspace_handle_v1::State::Active,
+                    //         ));
 
-                            // XXX efficiency
-                            let img_for_output = old_workspaces
-                                .iter()
-                                .find(|i| i.handle == workspace.handle)
-                                .map(|i| i.img_for_output.clone())
-                                .unwrap_or_default();
+                    //         // XXX efficiency
+                    //         let img_for_output = old_workspaces
+                    //             .iter()
+                    //             .find(|i| i.handle == workspace.handle)
+                    //             .map(|i| i.img_for_output.clone())
+                    //             .unwrap_or_default();
 
-                            self.workspaces.push(Workspace {
-                                name: workspace.name,
-                                handle: workspace.handle,
-                                outputs,
-                                img_for_output,
-                                is_active,
-                            });
-                        }
+                    //         self.workspaces.push(Workspace {
+                    //             name: workspace.name,
+                    //             handle: workspace.handle,
+                    //             outputs,
+                    //             img_for_output,
+                    //             is_active,
+                    //         });
+                    //     }
+                    //     self.update_capture_filter();
+                    // }
+                    backend::Event::Workspaces(_workspaces) => {
+                        self.workspaces = (0..NUM_WORKSPACES).map(|i| {
+                            Workspace {
+                                name: format!("Workspace {}", i + 1),
+                                handle: i,
+                                outputs: vec![],
+                                img_for_output: HashMap::new(),
+                                is_active: i == 0,
+                            }
+                        }).collect();
+                    
                         self.update_capture_filter();
                     }
+
                     backend::Event::NewToplevel(handle, info) => {
                         log::debug!("New toplevel: {info:?}");
                         self.toplevels.push(Toplevel {
@@ -568,9 +584,13 @@ impl Application for App {
             Msg::Config(c) => {
                 self.conf.config = c;
             }
+            // Msg::CompConfig(c) => {
+            //     self.conf.workspace_config = c.workspaces;
+            // }
             Msg::CompConfig(c) => {
-                self.conf.workspace_config = c.workspaces;
+                self.conf.workspace_config.workspace_amount = WorkspaceAmount::Static(NUM_WORKSPACES);
             }
+
             Msg::BgConfig(c) => {
                 self.conf.bg = c;
             }
